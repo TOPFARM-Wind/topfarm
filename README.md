@@ -7,8 +7,8 @@ TOPFARM (A Tool for Wind Farm Optimization) is an open-source, collaborative too
 
 # Installation
 
-Please read our installation guide [here](https://github.com/TOPFARM-Wind/topfarm/blob/master/INSTALLATION.md). 
+Please read our installation guide [here](INSTALLATION.md). 
 
 # Contributing, Bug Reports
 
-Please read our contribution guide [here](https://github.com/TOPFARM-Wind/topfarm/blob/master/CONTRIBUTING.md).
+Please read our contribution guide [here](CONTRIBUTING.md).
