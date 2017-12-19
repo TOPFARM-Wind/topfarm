@@ -18,8 +18,22 @@ class WakeModel():
         """ Wrapper method for calculating wake effct.
         """
         if self.wake_model == 'NO_Jensen':
-            return self.NO_Jensen(x, y, H, D, ws, wd, Ct, TI, k,
-                                  turbulence_model=self.turbulence_model)
+            num_turbines,num_ws_bins,num_wd_bins = ws.shape
+            shape_ikl = [num_turbines, num_ws_bins, num_wd_bins]
+            local_ws_real_ikl = np.zeros(shape_ikl)
+            local_TI_real_ikl = np.zeros(shape_ikl)
+            
+            for l_wd in range(num_wd_bins):
+                for k_ws in range(num_ws_bins):
+                    # calculate effective wind speed and turbulence intensity
+                    (ws_eff, TI_eff) = self.NO_Jensen(x, y, H, D, ws[:, k_ws, l_wd], 
+                        wd[:, k_ws, l_wd], Ct[:, k_ws, l_wd], TI[:, l_wd], k,
+                        turbulence_model=self.turbulence_model)
+    
+                    local_ws_real_ikl[:, k_ws, l_wd] = ws_eff
+                    local_TI_real_ikl[:, k_ws, l_wd] = TI_eff
+                    
+            return local_ws_real_ikl, local_TI_real_ikl
         else:
             raise ValueError('The required wake model has not been \
                              implemented!')

@@ -247,25 +247,16 @@ class AEP_load():
         # assuming same wake decay coefficients for all turbines
         k_star_list = [self.k_star] * self.num_turbines
 
-        for l_wd in range(self.num_wd_bins):
-
-            for k_ws in range(self.num_ws_bins):
-                ws = self.ws_binned[k_ws]
-
-                # calculate effective wind speed and turbulence intensity
-                (ws_eff, TI_eff) = self.wake_model.cal_wake(
+        (self.local_ws_real_ikl, self.local_TI_real_ikl) = self.wake_model.cal_wake(
                     self.wf_design[:, 0],   # [x_i]
                     self.wf_design[:, 1],   # [y_i]
                     self.wf_design[:, 4],   # [H_i]]
                     self.wf_design[:, 3],   # [D_i]
-                    self.local_ws_ideal_ikl[:, k_ws, l_wd],
-                    self.local_wd_ideal_ikl[:, k_ws, l_wd],
-                    self.local_Ct_ikl[:, k_ws, l_wd],
-                    turbulence_il[:, l_wd],
+                    self.local_ws_ideal_ikl,
+                    self.local_wd_ideal_ikl,
+                    self.local_Ct_ikl,
+                    turbulence_il,
                     k_star_list)
-
-                self.local_ws_real_ikl[:, k_ws, l_wd] = ws_eff
-                self.local_TI_real_ikl[:, k_ws, l_wd] = TI_eff
 
         #######################################################################
         # Step 5. Calculate real power of each turbine
