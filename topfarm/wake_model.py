@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-
+import os
+import shutil
+import subprocess
 
 class WakeModel():
     """ Compute wake effects
@@ -34,6 +36,80 @@ class WakeModel():
                     local_TI_real_ikl[:, k_ws, l_wd] = TI_eff
                     
             return local_ws_real_ikl, local_TI_real_ikl
+        elif self.wake_model == 'FarmFlow':        
+            FarmFlowPath = 'C:\\Users\\bedon\\Documents\\FarmFlow 3.0b\\'
+            FarmFlowProj = FarmFlowPath + 'Projects\\TopFarm\\'
+            
+            nCpus = 4;
+            airDensity = 1.225
+            
+            num_turbines,num_ws_bins,num_wd_bins = ws.shape
+            shape_ikl = [num_turbines, num_ws_bins, num_wd_bins]
+            local_ws_real_ikl = np.zeros(shape_ikl)
+            local_TI_real_ikl = np.zeros(shape_ikl)
+            Ct_unique,index_unique,index_reverse = np.unique(Ct,axis=0,return_index=True, return_inverse=True)
+            num_type_turbines = Ct_unique.shape[0]
+            H_unique = H[index_unique]
+            D_unique = D[index_unique]
+            
+            # refresh folder
+            if os.path.exists(FarmFlowProj):
+                shutil.rmtree(FarmFlowProj)
+            os.makedirs(FarmFlowProj)
+            # turbines file
+            turbinesFile = open(FarmFlowProj + 'turbines','w')
+            for l_turb in range(num_type_turbines):
+                turbinesFile.write(f'TopFarmTurb{l_turb:.0f}.trb {H_unique[l_turb]:.1f}\n')
+            for l_turb in range(10-num_type_turbines):    
+                turbinesFile.write(f'TopFarmTurb{0:.0f}.trb {H_unique[0]:.1f}\n')
+            turbinesFile.close()
+            # trb files
+            for l_turb in range(num_type_turbines):
+                trbFile = open(FarmFlowPath + f'Turbines\\TopFarmTurb{l_turb:.0f}.trb','w+')
+                trbFile.write(f'[Type]\nTopFarm Turbine {l_turb:.0f}\n\n')
+                trbFile.write(f'[RotorDiameter]\n{D_unique[l_turb]:.1f} [m]\n\n')
+                trbFile.write(f'[HubHeight]\n{H_unique[l_turb]:.1f} [m]\n\n')
+                trbFile.write(f'[AirDensity]\n{airDensity:.3f} [kg/m3]\n\n')
+                trbFile.write(f'[Performance]\nStandard\nU[m/s] P[kW] CT[-]\n')
+                for k_ws in range(num_ws_bins):
+                    trbFile.write(f'{ws[1,k_ws,1]:.1f} {10+k_ws:.0f} {Ct_unique[l_turb,k_ws,1]:.3f}\n')
+                trbFile.close()
+            # farm file
+            farmFile = open(FarmFlowProj + 'farm','w')
+            for l_x in range(num_turbines):
+                farmFile.write(f'{index_reverse[l_x]+1:.0f} 0 {x[l_x]:.1f} {y[l_x]:.1f} 0.0 WTG_{l_x:.0f} !\n')
+            farmFile.close()
+            # input file
+            inputFile = open(FarmFlowProj + 'input','w')
+            inputFile.write(f'project_dir {FarmFlowProj:s}\n')
+            inputFile.write(f'output_dir {FarmFlowProj:s}output\n')
+            inputFile.write(f'reference_height {H[0]:.1f}\n') # ????
+            inputFile.write(f'air_density {airDensity:.3f}\n') # ????
+            inputFile.write(f'max_cpu {nCpus:.0f}\n')
+            inputFile.write(f'wind_option 1\n')
+            for l_wd in range(num_wd_bins):
+                for k_ws in range(num_ws_bins):
+                    inputFile.write(f'wind_data {wd[1,k_ws,l_wd]:.0f} {ws[1,k_ws,l_wd]:.1f} {TI[1, l_wd]:.3f}\n')
+            inputFile.close()
+            
+            # launch FarmFlow
+            exitCode = subprocess.call([FarmFlowPath+'Source\\FarmFlow.exe',FarmFlowProj+'input'])
+            
+            # read Results.txt
+            with open(FarmFlowProj + '\\output\\Results.txt') as f:
+                for line in f:
+                    data = line.split()
+                    if len(data) == 24 and data[0].isdigit():
+                        i,j = np.where(np.round(ws[0,:,:],decimals=2)==float(data[3]))
+                        k_ws = i[0];
+                        i,j = np.where(np.round(wd[0,:,:],decimals=1)==float(data[2]))
+                        l_wd = j[0]
+                        i_wt = int(data[1].split('_')[1])
+                        local_ws_real_ikl[i_wt, k_ws, l_wd] = data[8]
+                        local_TI_real_ikl[i_wt, k_ws, l_wd] = data[9]
+                        
+            return local_ws_real_ikl, local_TI_real_ikl
+            
         else:
             raise ValueError('The required wake model has not been \
                              implemented!')
